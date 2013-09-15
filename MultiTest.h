@@ -6,13 +6,14 @@
 #include <functional>
 #include <utility>
 #include <string>
-#include <unordered_map>
+#include <map>
 #include <ostream>
 #include <future>
+#include <iostream>
 
 using namespace std;
 
-template <class T, class TestCase, class Result, class Map = unordered_map<TestCase, Result>>
+template <class T, class TestCase, class Result, class Map = map<TestCase, Result>>
 class MultiTest
 {
     static string message(const TestCase &testCase)
@@ -54,12 +55,12 @@ class MultiTest
     }
 };
 
-template <class T, class TestCase, class Result, class Map = unordered_map<TestCase, Result>>
-class SequentialMultiTest : MultiTest<T, TestCase, Result, Map>
+template <class T, class TestCase, class Result, class Map = map<TestCase, Result>>
+class SequentialMultiTest : public MultiTest<T, TestCase, Result, Map>
 {
     public:
-    typedef function<Result (T &, const TestCase &)> Function;
-
+    typedef typename MultiTest<T, TestCase, Result, Map>::Function Function;
+ 
     SequentialMultiTest(const Function &f, const Map &m):
         MultiTest<T, TestCase, Result, Map>(f, m) {}
     SequentialMultiTest<T, TestCase, Result, Map>(Function &&f, const Map &m):
@@ -78,11 +79,11 @@ class SequentialMultiTest : MultiTest<T, TestCase, Result, Map>
     }
 };
 
-template <class T, class TestCase, class Result, class Map = unordered_map<TestCase, Result>>
-class ConcurrentMultiTest : MultiTest<T, TestCase, Result, Map>
+template <class T, class TestCase, class Result, class Map = map<TestCase, Result>>
+class ConcurrentMultiTest : public MultiTest<T, TestCase, Result, Map>
 {
     public:
-    typedef function<Result (T &, const TestCase &)> Function;
+    typedef typename MultiTest<T, TestCase, Result, Map>::Function Function;
 
     ConcurrentMultiTest(const Function &f, const Map &m):
         MultiTest<T, TestCase, Result, Map>(f, m) {}
@@ -97,11 +98,10 @@ class ConcurrentMultiTest : MultiTest<T, TestCase, Result, Map>
     {
         vector<future<void>> futures;
         auto end = this->m.cend();
-        auto penultimate = penultimate - 1;
         auto iter = this->m.cbegin();
-        for (; iter != penultimate; iter++)
+        for (size_t i = 0; i < this->m.size() - 1; i++, iter++)
         {
-            futures.push_back([&, iter]() { test(t, *iter); }); // capture the iterator's value
+            futures.push_back(async([&, iter]() { this->test(t, *iter); })); // capture the iterator's value
         }
         test(t, *iter);
         for (auto &f : futures)

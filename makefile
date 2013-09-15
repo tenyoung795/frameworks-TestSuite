@@ -8,10 +8,8 @@ OBJECTS = TestSuite.o MultiTest.o
 compile: $(OBJECTS)
 
 TestSuite.o: TestSuite.h
-	$(CC) $(OPTIONS) -c TestSuite.h
 
 MultiTest.o: MultiTest.h
-	$(CC) $(OPTIONS) -c MultiTest.h
 
 install: TestSuite.o MultiTest.o
 	cp TestSuite.h /usr/include

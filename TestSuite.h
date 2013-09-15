@@ -16,17 +16,12 @@
 
 using namespace std;
 
-template <class State,
-    class Tests = unordered_map<string, function<void (State &) throw(AssertException)>>>
+template <class State>
 class TestSuite
 {
-    static Tests &mustntBeEmpty(const Tests &tests) throw(invalid_argument)
-    {
-        if (tests.empty()) throw invalid_argument("No tests");
-        return tests;
-    }
-
     public:
+    typedef unordered_map<string, function<void (State &)>> Tests;
+    
     /*
         The map of tests to run.
     */
@@ -42,7 +37,8 @@ class TestSuite
     bool operator()(ostream &out = clog) const
     {
         logBegin(out);
-        size_t numFailed = tryTests(makeState(), out);
+        State state = makeState();
+        size_t numFailed = tryTests(state, out);
         logEnd(numFailed, out);
         return numFailed == 0;
     }
@@ -103,15 +99,23 @@ class TestSuite
 			<< (numFailed == 0? "\nA WINNER IS YOU\n" : "\nWOW! YOU LOSE\n");      
     }
 
+    private:
+    static Tests mustntBeEmpty(const Tests &tests) throw(invalid_argument)
+    {
+        if (tests.empty()) throw invalid_argument("No tests");
+        return tests;
+    }
+
 };
 
-template <class State,
-    class Tests = unordered_map<string, function<void (State &) throw(AssertException)>>>
-class SequentialTestSuite : TestSuite<State, Tests>
+template <class State>
+class SequentialTestSuite : public TestSuite<State>
 {
     public:
-    SequentialTestSuite(const Tests &tests): TestSuite<State, Tests>(tests) {}
-    SequentialTestSuite(Tests &&tests): TestSuite<State, Tests>(move(tests)) {}
+    typedef typename TestSuite<State>::Tests Tests;
+
+    SequentialTestSuite(const Tests &tests): TestSuite<State>(tests) {}
+    SequentialTestSuite(Tests &&tests): TestSuite<State>(move(tests)) {}
 
     protected:
     void logBegin(ostream &out) const
@@ -131,13 +135,14 @@ class SequentialTestSuite : TestSuite<State, Tests>
 
 };
 
-template <class State,
-    class Tests = unordered_map<string, function<void (State &) throw(AssertException)>>>
-class ConcurrentTestSuite: TestSuite<State, Tests>
+template <class State>
+class ConcurrentTestSuite: public TestSuite<State>
 {
     public:
-    ConcurrentTestSuite(const Tests &tests): TestSuite<State, Tests>(tests) {}
-    ConcurrentTestSuite(Tests &&tests): TestSuite<State, Tests>(move(tests)) {}
+    typedef typename TestSuite<State>::Tests Tests;
+
+    ConcurrentTestSuite(const Tests &tests): TestSuite<State>(tests) {}
+    ConcurrentTestSuite(Tests &&tests): TestSuite<State>(move(tests)) {}
 
     protected:
     void logBegin(ostream &out) const
@@ -150,15 +155,16 @@ class ConcurrentTestSuite: TestSuite<State, Tests>
         vector<future<void>> futures;
         atomic<size_t> numFailed(0);
         auto end = this->tests.cend();
-        auto penultimate = end - 1;
-        for (auto iter = this->tests.cbegin(); iter != penultimate; iter++)
+        auto iter = this->tests.cbegin();
+        for (size_t i = 0; i < this->tests.size() - 1; i++, iter++)
         {
-            futures.push_back([&, iter]
+            futures.push_back(async([&, i, iter]()
             {
-                if (!tryTest(s, *iter, out)) numFailed++;
-            });
+                if (!this->tryTest(s, *iter, out)) numFailed++;
+            }));
         }
-        if (!tryTest(s, *penultimate, out)) numFailed++;
+        if (!tryTest(s, *iter, out)) numFailed++;
+        for (auto &f : futures) f.get();
         return numFailed.load();
     }
 
