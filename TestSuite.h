@@ -108,14 +108,14 @@ class TestSuite
 
 };
 
-template <class State>
-class SequentialTestSuite : public TestSuite<State>
+template <class State, class Map = unordered_map<string, function<void (State &)>>>
+class SequentialTestSuite : public TestSuite<State, Map>
 {
     public:
-    typedef typename TestSuite<State>::Tests Tests;
+    typedef Map Tests;
 
-    SequentialTestSuite(const Tests &tests): TestSuite<State>(tests) {}
-    SequentialTestSuite(Tests &&tests): TestSuite<State>(move(tests)) {}
+    SequentialTestSuite(const Tests &tests): TestSuite<State, Map>(tests) {}
+    SequentialTestSuite(Tests &&tests): TestSuite<State, Map>(move(tests)) {}
 
     protected:
     void logBegin(ostream &out) const
@@ -135,14 +135,14 @@ class SequentialTestSuite : public TestSuite<State>
 
 };
 
-template <class State>
-class ConcurrentTestSuite: public TestSuite<State>
+template <class State, class Map = unordered_map<string, function<void (State &)>>>
+class ConcurrentTestSuite: public TestSuite<State, Map>
 {
     public:
-    typedef typename TestSuite<State>::Tests Tests;
+    typedef Map Tests;
 
-    ConcurrentTestSuite(const Tests &tests): TestSuite<State>(tests) {}
-    ConcurrentTestSuite(Tests &&tests): TestSuite<State>(move(tests)) {}
+    ConcurrentTestSuite(const Tests &tests): TestSuite<State, Map>(tests) {}
+    ConcurrentTestSuite(Tests &&tests): TestSuite<State, Map>(move(tests)) {}
 
     protected:
     void logBegin(ostream &out) const

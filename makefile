@@ -1,24 +1,28 @@
 #!/usr/bin/env make -f
 
 CC = g++
+LANG = c++-header
 STANDARD = c++0x
-OPTIONS = -std=$(STANDARD) -pthread -Wall
-OBJECTS = TestSuite.o MultiTest.o
+OPTIONS = -x $(LANG) -std=$(STANDARD) -Wall
+LIBRARIES = -pthread
+HEADERS = TestSuite.h.gch MultiTest.h.gch
 
-compile: $(OBJECTS)
+compile: $(HEADERS)
 
-TestSuite.o: TestSuite.h
+TestSuite.h.gch: TestSuite.h
+	$(CC) $(OPTIONS) TestSuite.h $(LIBRARIES)
 
-MultiTest.o: MultiTest.h
+MultiTest.h.gch: MultiTest.h
+	$(CC) $(OPTIONS) MultiTest.h $(LIBRARIES)
 
-install: TestSuite.o MultiTest.o
-	cp TestSuite.h /usr/include
-	cp MultiTest.h /usr/include
-
-install_local: TestSuite.o MultiTest.o
+install_local: $(HEADERS)
 	cp TestSuite.h /usr/local/include
 	cp MultiTest.h /usr/local/include
 
+install: $(HEADERS)
+	cp TestSuite.h /usr/include
+	cp MultiTest.h /usr/include
+
 clean:
-	rm -f $(OBJECTS) *~ *.swp
+	rm -f *~ $(HEADERS) *.swp
 
