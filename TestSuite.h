@@ -16,11 +16,11 @@
 
 using namespace std;
 
-template <class State>
+template <class State, class Map = unordered_map<string, function<void (State &)>>>
 class TestSuite
 {
     public:
-    typedef unordered_map<string, function<void (State &)>> Tests;
+    typedef Map Tests;
     
     /*
         The map of tests to run.
