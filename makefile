@@ -14,12 +14,12 @@ MultiTest.o: MultiTest.h
 	$(CC) $(OPTIONS) -c MultiTest.h
 
 install: TestSuite.o MultiTest.o
-	cp TestSuite.h /usr/lib
-	cp MultiTest.h /usr/lib
+	cp TestSuite.h /usr/include
+	cp MultiTest.h /usr/include
 
 install_local: TestSuite.o MultiTest.o
-	cp TestSuite.h /usr/local/lib
-	cp MultiTest.h /usr/local/lib
+	cp TestSuite.h /usr/local/include
+	cp MultiTest.h /usr/local/include
 
 clean:
 	rm -f $(OBJECTS) *~ *.swp
