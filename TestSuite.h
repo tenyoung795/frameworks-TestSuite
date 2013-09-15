@@ -131,8 +131,6 @@ class SequentialTestSuite : TestSuite<State, Tests>
 
 };
 
-#define wtf() fuck
-
 template <class State,
     class Tests = unordered_map<string, function<void (State &) throw(AssertException)>>>
 class ConcurrentTestSuite: TestSuite<State, Tests>
