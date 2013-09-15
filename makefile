@@ -3,18 +3,24 @@
 CC = g++
 STANDARD = c++0x
 OPTIONS = -std=$(STANDARD) -pthread -Wall
+OBJECTS = TestSuite.o MultiTest.o
 
-compile: TestSuite.cpp TestSuite.h
-	$(CC) $(OPTIONS) -c TestSuite.cpp
+compile: $(OBJECTS)
+
+TestSuite.o: TestSuite.h
+	$(CC) $(OPTIONS) -c TestSuite.h
+
+MultiTest.o: MultiTest.h
+	$(CC) $(OPTIONS) -c MultiTest.h
 
 install: compile
-	cp TestSuite.o /usr/lib/
 	cp TestSuite.h /usr/include/
+	cp MultiTest.h /usr/include/
 
 install_local: compile
-	cp TestSuite.o /usr/local/lib/
 	cp TestSuite.h /usr/local/include/
+	cp MultiTest.h /usr/local/include/
 
 clean:
-	rm TestSuite.o *~ *.swp
+	rm -f $(OBJECTS) *~ *.swp
 

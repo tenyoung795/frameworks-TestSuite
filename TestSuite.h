@@ -2,166 +2,169 @@
 #define TESTSUITE_H
 
 #include <Assert.h>
-
 #include <utility>
 #include <functional>
-
 #include <vector>
 #include <unordered_map>
-
 #include <exception>
 #include <stdexcept>
-
 #include <ios>
 #include <ostream>
 #include <iostream>
-
 #include <atomic>
-#include <mutex>
 #include <future>
 
 using namespace std;
 
-size_t checkConcurrencyLevel(size_t suiteSize, size_t concurrencyLevel) throw (out_of_range);
-
-template <class State>
+template <class State,
+    class Tests = unordered_map<string, function<void (State &) throw(AssertException)>>>
 class TestSuite
 {
-    public:
-	/*
-     * A test is a function that takes in a reference to some state and returns nothing,
-     * but throws an exception on a known failure.
-     */
-    typedef function<void (State &) throw(AssertException)> Test;
+    static Tests &mustntBeEmpty(const Tests &tests) throw(invalid_argument)
+    {
+        if (tests.empty()) throw invalid_argument("No tests");
+        return tests;
+    }
 
+    public:
     /*
-     * A map of Tests to their names. 
-     */
-    typedef unordered_map<string, Test> Tests;
-    
-    /*
-     * The map of tests to run.
-     */
+        The map of tests to run.
+    */
     const Tests tests;
 
     /*
-     * The concurrency level of the test suite,
-     * meaning the number of futures to use.
-     * It must be between 1 and the size of a non-empty suite inclusive,
-     * or always 1 for an empty suite.
-     */
-    const size_t concurrencyLevel;
-
-    /*
-     * Runs the test suite.
-     * First, the test suite is set up;
-     * if that throws an exception, the suite aborts.
-     * Otherwise, run all the tests, then tear down the suite.
-     * If a test throws something that is not an AssertException,
-     * the suite aborts.
-     *
-     * Returns true on success, false on failure.
+    	Runs all tests.
+        If a test throws something that is not an AssertException,
+    	the suite aborts.
+    
+    	Returns true on success, false on failure.
      */
     bool operator()(ostream &out = clog) const
     {
-        size_t numTests = tests.size();
-        out << "Executing " << numTests << " tests at concurrency level " << concurrencyLevel << '\n';
-
-        class state // wrapper around State to use setUp and tearDown
-        {
-            const TestSuite<State> &suite;
-            public:
-            State s;
-            state(const TestSuite<State> &suite): suite(suite), s(suite.setUp()) {}
-            ~state() { suite.tearDown(s); }
-        } s(*this);
-
-        
-        atomic<size_t> numFailed(0);
-
-        auto tryTest = [&](const pair<const string, Test> &p)
-        {
-            out << "Executing " << p.first << '\n';
-            try
-            {
-                p.second(s.s);
-                out << p.first << " passed\n";
-            }
-            catch (AssertException &ae)
-            {
-                out << p.first << " failed: " << ae.what() << '\n';
-                numFailed++;
-            }
-        };
-        
-        size_t testsPerFuture = numTests / concurrencyLevel;
-        vector<future<void>> futures;
-        
-        // concurrencyLevel - 1 because one of the threads is the caller thread
-        auto iter = tests.cbegin();
-        for (size_t i = 0; i < concurrencyLevel - 1; i++)
-        {
-            Tests futureTests;
-            for (size_t j = 0; j < testsPerFuture; j++)
-            {
-                futureTests[iter->first] = iter->second;
-                iter++;
-            }
-            futures.push_back(async([&](Tests myTests)
-            {
-                for (auto &entry : myTests)
-                {
-                    tryTest(entry);
-                }
-            }, futureTests));
-        }
-        
-        for (auto end = tests.cend(); iter != end; iter++)
-        {
-            tryTest(*iter);
-        }
-
-        for (auto &f : futures)
-        {
-            f.get();
-        }
-
-        size_t numPassed = numTests - numFailed;
-        bool passed = numFailed == 0;
-        out << "Tests passed: " << numPassed << '/' << numTests
-			<< (passed? "\nA WINNER IS YOU\n" : "\nWOW! YOU LOSE\n");      
-        return passed;
+        logBegin(out);
+        size_t numFailed = tryTests(makeState(), out);
+        logEnd(numFailed, out);
+        return numFailed == 0;
     }
 
     protected:
-    /*
-     * Sets up the test suite,
-     * returning the state to be tested.
-     * If State has no default constructor,
-     * this must be overloaded.
-     */
-    virtual State setUp() const { return State{}; };
+    TestSuite(const Tests &tests): tests(mustntBeEmpty(tests)) {}
+    TestSuite(Tests &&tests): tests(move(mustntBeEmpty(tests))) {}
 
     /*
-     * Tears down the test suite.
-     * Does nothing by default.
-     */
-    virtual void tearDown(State &s) const {}
+        Creates the state to be tested.
+        By default, this uses the default initializer;
+        if this is not possible for a given type this must be overloaded.
+    */
+    virtual State makeState() const
+    {
+        return State{};
+    }
 
-    /**
-     * Constructs a test suite using the given tests
-     * to be ran at a concurrency level; 0 means the maximum, which is default.
-     * Throws an out of range error if a bad concurrency level is given.
-     *
-     * If this is a concurrent test suite and at least ONE test mutates the state,
-     * then ALL tests must lock the state appropriately.
-     */
-    TestSuite(const Tests &t, size_t l = 0) throw(out_of_range):
-        tests(t), concurrencyLevel(checkConcurrencyLevel(tests.size(), l)) {}
+    /*
+        Tries a particular test,
+        logging to the given output stream.
+        Returns true on passing, false on failure.
+    */
+    bool tryTest(State &state, const typename Tests::value_type &entry, ostream &out) const
+    {
+        out << "Executing " << entry.first << '\n';
+        try
+        {
+            entry.second(state);
+            out << entry.first << " passed\n";
+            return true;
+        }
+        catch (AssertException &ae)
+        {
+            out << entry.first << " failed: " << ae.what() << '\n';
+            return false;
+        }
+    }
 
-    TestSuite(Tests &&t, size_t l = 0) throw(out_of_range):
-        tests(move(t)), concurrencyLevel(checkConcurrencyLevel(tests.size(), l)) {}
+    /*
+        Logs an intro to the output stream.
+    */
+    virtual void logBegin(ostream &) const = 0;
+
+    /*
+        Tries all the tests.
+        Returns the number of tests that failed.
+    */
+    virtual size_t tryTests(State &, ostream &) const = 0;
+    
+    /*
+        Logs the result to the output stream.
+    */
+    virtual void logEnd(size_t numFailed, ostream &out) const
+    {
+        size_t numTests = tests.size();
+        out << "Tests passed: " << (numTests - numFailed) << '/' << numTests
+			<< (numFailed == 0? "\nA WINNER IS YOU\n" : "\nWOW! YOU LOSE\n");      
+    }
 
 };
+
+template <class State,
+    class Tests = unordered_map<string, function<void (State &) throw(AssertException)>>>
+class SequentialTestSuite : TestSuite<State, Tests>
+{
+    public:
+    SequentialTestSuite(const Tests &tests): TestSuite<State, Tests>(tests) {}
+    SequentialTestSuite(Tests &&tests): TestSuite<State, Tests>(move(tests)) {}
+
+    protected:
+    void logBegin(ostream &out) const
+    {
+        out << "Beginning " << this->tests.size() << " tests sequentially\n";
+    }
+
+    size_t tryTests(State &s, ostream &out) const
+    {
+        size_t numFailed = 0;
+        for (auto &entry : this->tests)
+        {
+            if (!tryTest(s, entry, out)) numFailed++;
+        }
+        return numFailed;
+    }
+
+};
+
+#define wtf() fuck
+
+template <class State,
+    class Tests = unordered_map<string, function<void (State &) throw(AssertException)>>>
+class ConcurrentTestSuite: TestSuite<State, Tests>
+{
+    public:
+    ConcurrentTestSuite(const Tests &tests): TestSuite<State, Tests>(tests) {}
+    ConcurrentTestSuite(Tests &&tests): TestSuite<State, Tests>(move(tests)) {}
+
+    protected:
+    void logBegin(ostream &out) const
+    {
+        out << "Beginning " << this->tests.size() << " tests concurrently\n";
+    }
+
+    size_t tryTests(State &s, ostream &out) const
+    {
+        vector<future<void>> futures;
+        atomic<size_t> numFailed(0);
+        auto end = this->tests.cend();
+        auto penultimate = end - 1;
+        for (auto iter = this->tests.cbegin(); iter != penultimate; iter++)
+        {
+            futures.push_back([&, iter]
+            {
+                if (!tryTest(s, *iter, out)) numFailed++;
+            });
+        }
+        if (!tryTest(s, *penultimate, out)) numFailed++;
+        return numFailed.load();
+    }
+
+};
+
 
 #endif
