@@ -13,7 +13,7 @@
 
 using namespace std;
 
-template <class T, class TestCase, class Result, class Map = map<TestCase, Result>>
+template <class TestCase, class Result, class Map = map<TestCase, Result>>
 class MultiTest
 {
     static string message(const TestCase &testCase)
@@ -25,9 +25,9 @@ class MultiTest
 
     public:
     /*
-        The function type that takes in a T and a TestCase and returns a Result.
+        The function type that takes in a TestCase and returns a Result.
     */
-    typedef function<Result (T &, const TestCase &)> Function;
+    typedef function<Result (const TestCase &)> Function;
     /*
         The function to apply per TestCase.
     */
@@ -37,7 +37,7 @@ class MultiTest
     */
     const Map m;
 
-    virtual void operator()(T &t) const throw(AssertException) = 0;
+    virtual void operator()() const throw(AssertException) = 0;
 
     protected:
     MultiTest(const Function &f, const Map &m):
@@ -49,61 +49,61 @@ class MultiTest
     MultiTest(Function &&f, Map &&m):
         f(move(f)), m(move(m)) {}
 
-    void test(T &t, const typename Map::value_type &entry) const
+    void test(const typename Map::value_type &entry) const
     {
-        assertEqualsMsg(Result, entry.second, f(t, entry.first), message(entry.first));
+        assertEqualsMsg(Result, entry.second, f(entry.first), message(entry.first));
     }
 };
 
-template <class T, class TestCase, class Result, class Map = map<TestCase, Result>>
-class SequentialMultiTest : public MultiTest<T, TestCase, Result, Map>
+template <class TestCase, class Result, class Map = map<TestCase, Result>>
+class SequentialMultiTest : public MultiTest<TestCase, Result, Map>
 {
     public:
-    typedef typename MultiTest<T, TestCase, Result, Map>::Function Function;
+    typedef typename MultiTest<TestCase, Result, Map>::Function Function;
  
     SequentialMultiTest(const Function &f, const Map &m):
-        MultiTest<T, TestCase, Result, Map>(f, m) {}
-    SequentialMultiTest<T, TestCase, Result, Map>(Function &&f, const Map &m):
-        MultiTest<T, TestCase, Result, Map>(move(f), m) {}
-    SequentialMultiTest<T, TestCase, Result, Map>(const Function &f, Map &&m):
-        MultiTest<T, TestCase, Result, Map>(f, move(m)) {}
-    SequentialMultiTest<T, TestCase, Result, Map>(Function &&f, Map &&m):
-        MultiTest<T, TestCase, Result, Map>(move(f), move(m)) {}
+        MultiTest<TestCase, Result, Map>(f, m) {}
+    SequentialMultiTest(Function &&f, const Map &m):
+        MultiTest<TestCase, Result, Map>(move(f), m) {}
+    SequentialMultiTest(const Function &f, Map &&m):
+        MultiTest<TestCase, Result, Map>(f, move(m)) {}
+    SequentialMultiTest(Function &&f, Map &&m):
+        MultiTest<TestCase, Result, Map>(move(f), move(m)) {}
 
-    void operator()(T &t) const throw(AssertException)
+    void operator()() const throw(AssertException)
     {
         for (auto &entry : this->m)
         {
-            test(t, entry);
+            test(entry);
         }
     }
 };
 
-template <class T, class TestCase, class Result, class Map = map<TestCase, Result>>
-class ConcurrentMultiTest : public MultiTest<T, TestCase, Result, Map>
+template <class TestCase, class Result, class Map = map<TestCase, Result>>
+class ConcurrentMultiTest : public MultiTest<TestCase, Result, Map>
 {
     public:
-    typedef typename MultiTest<T, TestCase, Result, Map>::Function Function;
+    typedef typename MultiTest<TestCase, Result, Map>::Function Function;
 
     ConcurrentMultiTest(const Function &f, const Map &m):
-        MultiTest<T, TestCase, Result, Map>(f, m) {}
-    ConcurrentMultiTest<T, TestCase, Result, Map>(Function &&f, const Map &m):
-        MultiTest<T, TestCase, Result, Map>(move(f), m) {}
-    ConcurrentMultiTest<T, TestCase, Result, Map>(const Function &f, Map &&m):
-        MultiTest<T, TestCase, Result, Map>(f, move(m)) {}
-    ConcurrentMultiTest<T, TestCase, Result, Map>(Function &&f, Map &&m):
-        MultiTest<T, TestCase, Result, Map>(move(f), move(m)) {}
+        MultiTest<TestCase, Result, Map>(f, m) {}
+    ConcurrentMultiTest(Function &&f, const Map &m):
+        MultiTest<TestCase, Result, Map>(move(f), m) {}
+    ConcurrentMultiTest(const Function &f, Map &&m):
+        MultiTest<TestCase, Result, Map>(f, move(m)) {}
+    ConcurrentMultiTest(Function &&f, Map &&m):
+        MultiTest<TestCase, Result, Map>(move(f), move(m)) {}
 
-    void operator()(T &t) const throw(AssertException)
+    void operator()() const throw(AssertException)
     {
         vector<future<void>> futures;
         auto end = this->m.cend();
         auto iter = this->m.cbegin();
         for (size_t i = 0; i < this->m.size() - 1; i++, iter++)
         {
-            futures.push_back(async([&, iter]() { this->test(t, *iter); })); // capture the iterator's value
+            futures.push_back(async([&, iter]() { this->test(*iter); })); // capture the iterator's value
         }
-        test(t, *iter);
+        test(*iter);
         for (auto &f : futures)
         {
             f.get();

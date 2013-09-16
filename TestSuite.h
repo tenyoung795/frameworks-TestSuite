@@ -16,7 +16,7 @@
 
 using namespace std;
 
-template <class State, class Map = unordered_map<string, function<void (State &)>>>
+template <class Map = unordered_map<string, function<void ()>>>
 class TestSuite
 {
     public:
@@ -37,8 +37,7 @@ class TestSuite
     bool operator()(ostream &out = clog) const
     {
         logBegin(out);
-        State state = makeState();
-        size_t numFailed = tryTests(state, out);
+        size_t numFailed = tryTests(out);
         logEnd(numFailed, out);
         return numFailed == 0;
     }
@@ -48,26 +47,16 @@ class TestSuite
     TestSuite(Tests &&tests): tests(move(mustntBeEmpty(tests))) {}
 
     /*
-        Creates the state to be tested.
-        By default, this uses the default initializer;
-        if this is not possible for a given type this must be overloaded.
-    */
-    virtual State makeState() const
-    {
-        return State{};
-    }
-
-    /*
         Tries a particular test,
         logging to the given output stream.
         Returns true on passing, false on failure.
     */
-    bool tryTest(State &state, const typename Tests::value_type &entry, ostream &out) const
+    bool tryTest(const typename Tests::value_type &entry, ostream &out) const
     {
         out << "Executing " << entry.first << '\n';
         try
         {
-            entry.second(state);
+            entry.second();
             out << entry.first << " passed\n";
             return true;
         }
@@ -87,7 +76,7 @@ class TestSuite
         Tries all the tests.
         Returns the number of tests that failed.
     */
-    virtual size_t tryTests(State &, ostream &) const = 0;
+    virtual size_t tryTests(ostream &) const = 0;
     
     /*
         Logs the result to the output stream.
@@ -108,14 +97,14 @@ class TestSuite
 
 };
 
-template <class State, class Map = unordered_map<string, function<void (State &)>>>
-class SequentialTestSuite : public TestSuite<State, Map>
+template <class Map = unordered_map<string, function<void ()>>>
+class SequentialTestSuite : public TestSuite<Map>
 {
     public:
     typedef Map Tests;
 
-    SequentialTestSuite(const Tests &tests): TestSuite<State, Map>(tests) {}
-    SequentialTestSuite(Tests &&tests): TestSuite<State, Map>(move(tests)) {}
+    SequentialTestSuite(const Tests &tests): TestSuite<Map>(tests) {}
+    SequentialTestSuite(Tests &&tests): TestSuite<Map>(move(tests)) {}
 
     protected:
     void logBegin(ostream &out) const
@@ -123,26 +112,26 @@ class SequentialTestSuite : public TestSuite<State, Map>
         out << "Beginning " << this->tests.size() << " tests sequentially\n";
     }
 
-    size_t tryTests(State &s, ostream &out) const
+    size_t tryTests(ostream &out) const
     {
         size_t numFailed = 0;
         for (auto &entry : this->tests)
         {
-            if (!tryTest(s, entry, out)) numFailed++;
+            if (!tryTest(entry, out)) numFailed++;
         }
         return numFailed;
     }
 
 };
 
-template <class State, class Map = unordered_map<string, function<void (State &)>>>
-class ConcurrentTestSuite: public TestSuite<State, Map>
+template <class Map = unordered_map<string, function<void ()>>>
+class ConcurrentTestSuite: public TestSuite<Map>
 {
     public:
     typedef Map Tests;
 
-    ConcurrentTestSuite(const Tests &tests): TestSuite<State, Map>(tests) {}
-    ConcurrentTestSuite(Tests &&tests): TestSuite<State, Map>(move(tests)) {}
+    ConcurrentTestSuite(const Tests &tests): TestSuite<Map>(tests) {}
+    ConcurrentTestSuite(Tests &&tests): TestSuite<Map>(move(tests)) {}
 
     protected:
     void logBegin(ostream &out) const
@@ -150,7 +139,7 @@ class ConcurrentTestSuite: public TestSuite<State, Map>
         out << "Beginning " << this->tests.size() << " tests concurrently\n";
     }
 
-    size_t tryTests(State &s, ostream &out) const
+    size_t tryTests(ostream &out) const
     {
         vector<future<void>> futures;
         atomic<size_t> numFailed(0);
@@ -160,10 +149,10 @@ class ConcurrentTestSuite: public TestSuite<State, Map>
         {
             futures.push_back(async([&, i, iter]()
             {
-                if (!this->tryTest(s, *iter, out)) numFailed++;
+                if (!this->tryTest(*iter, out)) numFailed++;
             }));
         }
-        if (!tryTest(s, *iter, out)) numFailed++;
+        if (!tryTest(*iter, out)) numFailed++;
         for (auto &f : futures) f.get();
         return numFailed.load();
     }
