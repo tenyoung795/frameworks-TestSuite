@@ -25,7 +25,7 @@ class MultiTest
     /*
         The function type that takes in a TestCase and returns a Result.
     */
-    typedef std::function<Result (const TestCase &)> Function;
+    typedef std::function<Result (TestCase)> Function;
     /*
         The function to apply per TestCase.
     */
