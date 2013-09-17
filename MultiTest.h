@@ -11,14 +11,12 @@
 #include <future>
 #include <iostream>
 
-using namespace std;
-
-template <class TestCase, class Result, class Map = map<TestCase, Result>>
+template <class TestCase, class Result, class Map = std::map<TestCase, Result>>
 class MultiTest
 {
-    static string message(const TestCase &testCase)
+    static std::string message(const TestCase &testCase)
     {
-        stringstream s;
+        std::stringstream s;
         s << "Test case " << testCase << " failed";
         return s.str();
     }
@@ -27,13 +25,13 @@ class MultiTest
     /*
         The function type that takes in a TestCase and returns a Result.
     */
-    typedef function<Result (const TestCase &)> Function;
+    typedef std::function<Result (const TestCase &)> Function;
     /*
         The function to apply per TestCase.
     */
     const Function f;
     /*
-        The map of TestCases and expected Results.
+        The std::map of TestCases and expected Results.
     */
     const Map m;
 
@@ -55,7 +53,7 @@ class MultiTest
     }
 };
 
-template <class TestCase, class Result, class Map = map<TestCase, Result>>
+template <class TestCase, class Result, class Map = std::map<TestCase, Result>>
 class SequentialMultiTest : public MultiTest<TestCase, Result, Map>
 {
     public:
@@ -79,7 +77,7 @@ class SequentialMultiTest : public MultiTest<TestCase, Result, Map>
     }
 };
 
-template <class TestCase, class Result, class Map = map<TestCase, Result>>
+template <class TestCase, class Result, class Map = std::map<TestCase, Result>>
 class ConcurrentMultiTest : public MultiTest<TestCase, Result, Map>
 {
     public:
@@ -96,12 +94,12 @@ class ConcurrentMultiTest : public MultiTest<TestCase, Result, Map>
 
     void operator()() const throw(AssertException)
     {
-        vector<future<void>> futures;
+        std::vector<std::future<void>> futures;
         auto end = this->m.cend();
         auto iter = this->m.cbegin();
         for (size_t i = 0; i < this->m.size() - 1; i++, iter++)
         {
-            futures.push_back(async([&, iter]() { this->test(*iter); })); // capture the iterator's value
+            futures.push_back(std::async([&, iter]() { this->test(*iter); })); // capture the iterator's value
         }
         test(*iter);
         for (auto &f : futures)

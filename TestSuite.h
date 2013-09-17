@@ -14,9 +14,7 @@
 #include <atomic>
 #include <future>
 
-using namespace std;
-
-template <class Map = unordered_map<string, function<void ()>>>
+template <class Map = std::unordered_map<std::string, std::function<void ()>>>
 class TestSuite
 {
     public:
@@ -34,7 +32,7 @@ class TestSuite
     
     	Returns true on success, false on failure.
      */
-    bool operator()(ostream &out = clog) const
+    bool operator()(std::ostream &out = std::clog) const
     {
         logBegin(out);
         size_t numFailed = tryTests(out);
@@ -51,7 +49,7 @@ class TestSuite
         logging to the given output stream.
         Returns true on passing, false on failure.
     */
-    bool tryTest(const typename Tests::value_type &entry, ostream &out) const
+    bool tryTest(const typename Tests::value_type &entry, std::ostream &out) const
     {
         out << "Executing " << entry.first << '\n';
         try
@@ -70,18 +68,18 @@ class TestSuite
     /*
         Logs an intro to the output stream.
     */
-    virtual void logBegin(ostream &) const = 0;
+    virtual void logBegin(std::ostream &) const = 0;
 
     /*
         Tries all the tests.
         Returns the number of tests that failed.
     */
-    virtual size_t tryTests(ostream &) const = 0;
+    virtual size_t tryTests(std::ostream &) const = 0;
     
     /*
         Logs the result to the output stream.
     */
-    virtual void logEnd(size_t numFailed, ostream &out) const
+    virtual void logEnd(size_t numFailed, std::ostream &out) const
     {
         size_t numTests = tests.size();
         out << "Tests passed: " << (numTests - numFailed) << '/' << numTests
@@ -89,15 +87,15 @@ class TestSuite
     }
 
     private:
-    static Tests mustntBeEmpty(const Tests &tests) throw(invalid_argument)
+    static Tests mustntBeEmpty(const Tests &tests) throw(std::invalid_argument)
     {
-        if (tests.empty()) throw invalid_argument("No tests");
+        if (tests.empty()) throw std::invalid_argument("No tests");
         return tests;
     }
 
 };
 
-template <class Map = unordered_map<string, function<void ()>>>
+template <class Map = std::unordered_map<std::string, std::function<void ()>>>
 class SequentialTestSuite : public TestSuite<Map>
 {
     public:
@@ -107,12 +105,12 @@ class SequentialTestSuite : public TestSuite<Map>
     SequentialTestSuite(Tests &&tests): TestSuite<Map>(move(tests)) {}
 
     protected:
-    void logBegin(ostream &out) const
+    void logBegin(std::ostream &out) const
     {
         out << "Beginning " << this->tests.size() << " tests sequentially\n";
     }
 
-    size_t tryTests(ostream &out) const
+    size_t tryTests(std::ostream &out) const
     {
         size_t numFailed = 0;
         for (auto &entry : this->tests)
@@ -124,7 +122,7 @@ class SequentialTestSuite : public TestSuite<Map>
 
 };
 
-template <class Map = unordered_map<string, function<void ()>>>
+template <class Map = std::unordered_map<std::string, std::function<void ()>>>
 class ConcurrentTestSuite: public TestSuite<Map>
 {
     public:
@@ -134,20 +132,20 @@ class ConcurrentTestSuite: public TestSuite<Map>
     ConcurrentTestSuite(Tests &&tests): TestSuite<Map>(move(tests)) {}
 
     protected:
-    void logBegin(ostream &out) const
+    void logBegin(std::ostream &out) const
     {
         out << "Beginning " << this->tests.size() << " tests concurrently\n";
     }
 
-    size_t tryTests(ostream &out) const
+    size_t tryTests(std::ostream &out) const
     {
-        vector<future<void>> futures;
-        atomic<size_t> numFailed(0);
+        std::vector<std::future<void>> futures;
+        std::atomic<size_t> numFailed(0);
         auto end = this->tests.cend();
         auto iter = this->tests.cbegin();
-        for (size_t i = 0; i < this->tests.size() - 1; i++, iter++)
+        for (size_t i = this->tests.size(); i > 1; i--, iter++)
         {
-            futures.push_back(async([&, i, iter]()
+            futures.push_back(std::async([&, iter]()
             {
                 if (!this->tryTest(*iter, out)) numFailed++;
             }));
