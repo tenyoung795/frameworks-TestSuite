@@ -41,8 +41,8 @@ class TestSuite
     }
 
     protected:
-    TestSuite(const Tests &tests): tests(mustntBeEmpty(tests)) {}
-    TestSuite(Tests &&tests): tests(move(mustntBeEmpty(tests))) {}
+    TestSuite(const Tests &tests): tests(tests) {}
+    TestSuite(Tests &&tests): tests(move(tests)) {}
 
     /*
         Tries a particular test,
@@ -84,13 +84,6 @@ class TestSuite
         size_t numTests = tests.size();
         out << "Tests passed: " << (numTests - numFailed) << '/' << numTests
 			<< (numFailed == 0? "\nA WINNER IS YOU\n" : "\nWOW! YOU LOSE\n");      
-    }
-
-    private:
-    static Tests mustntBeEmpty(const Tests &tests) throw(std::invalid_argument)
-    {
-        if (tests.empty()) throw std::invalid_argument("No tests");
-        return tests;
     }
 
 };
