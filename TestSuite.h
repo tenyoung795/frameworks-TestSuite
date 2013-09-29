@@ -132,6 +132,8 @@ class ConcurrentTestSuite: public TestSuite<Map>
 
     size_t tryTests(std::ostream &out) const
     {
+        if (this->tests.empty()) return 0;
+
         std::vector<std::future<void>> futures;
         std::atomic<size_t> numFailed(0);
         auto end = this->tests.cend();
