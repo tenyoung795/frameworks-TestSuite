@@ -94,6 +94,7 @@ class ConcurrentMultiTest : public MultiTest<TestCase, Result, Map>
 
     void operator()() const throw(AssertException)
     {
+        if (this->m.empty()) return;
         std::vector<std::future<void>> futures;
         auto end = this->m.cend();
         auto iter = this->m.cbegin();
