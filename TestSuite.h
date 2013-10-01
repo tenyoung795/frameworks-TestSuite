@@ -136,7 +136,6 @@ class ConcurrentTestSuite: public TestSuite<Map>
 
         std::vector<std::future<void>> futures;
         std::atomic<size_t> numFailed(0);
-        auto end = this->tests.cend();
         auto iter = this->tests.cbegin();
         for (size_t i = this->tests.size(); i > 1; i--, iter++)
         {
