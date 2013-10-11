@@ -35,7 +35,7 @@ class MultiTest
     */
     const Map m;
 
-    virtual void operator()() const throw(AssertException) = 0;
+    virtual void operator()() const = 0;
 
     protected:
     MultiTest(const Function &f, const Map &m):
@@ -68,7 +68,7 @@ class SequentialMultiTest : public MultiTest<TestCase, Result, Map>
     SequentialMultiTest(Function &&f, Map &&m):
         MultiTest<TestCase, Result, Map>(move(f), move(m)) {}
 
-    void operator()() const throw(AssertException)
+    void operator()() const
     {
         for (auto &entry : this->m)
         {
@@ -92,7 +92,7 @@ class ConcurrentMultiTest : public MultiTest<TestCase, Result, Map>
     ConcurrentMultiTest(Function &&f, Map &&m):
         MultiTest<TestCase, Result, Map>(move(f), move(m)) {}
 
-    void operator()() const throw(AssertException)
+    void operator()() const
     {
         if (this->m.empty()) return;
         std::vector<std::future<void>> futures;
